@@ -1,0 +1,36 @@
+---
+- hosts: linux
+  user: sysadmin
+  become: true
+  vars:
+    ansible_host_key_checking: false
+  tasks:
+  - name: Copy the public key to the nodes.
+    ansible.posix.authorized_key:
+    # Ansible module to use. 
+      user: sysadmin
+      # The user we want to run as. 
+      state: present
+      # What we want to happen/what is the desired status. In this case, the key needs to be present.
+      key: "{{ lookup('file', '/home/sysadmin/.ssh/id_rsa.pub') }}" # Where and what to lookup for the key.
+  - name: Disable root SSH login.
+    ansible.builtin.lineinfile:
+      path: /etc/ssh/sshd_config
+      # Path of the file we want to lookup
+      regexp: '^PermitRootLogin'
+      # Regular expression for what we're looking for. In this case, a line that starts with                                                 # "PermitRootLogin" 
+      line: "PermitRootLogin no"
+      # What we want the line to end up as. In this case, we want to set it to no.
+    notify: Reboot SSH server.
+    # To reboot the service. This points to the handler called "Reboot SSH server."
+  - name: Disable password login.
+    ansible.builtin.lineinfile:
+      path: /etc/ssh/sshd_config
+      regexp: '^PasswordAuthentication'
+      line: "PasswordAuthentication no"
+    notify: Reboot SSH server.
+  handlers:
+  - name: Reboot SSH server.
+    ansible.builtin.systemd_service:
+      name: sshd
+      state: restarted
